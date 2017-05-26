@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include loan_management *.css
+recursive-include loan_management *.csv
+recursive-include loan_management *.html
+recursive-include loan_management *.ico
+recursive-include loan_management *.js
+recursive-include loan_management *.json
+recursive-include loan_management *.md
+recursive-include loan_management *.png
+recursive-include loan_management *.py
+recursive-include loan_management *.svg
+recursive-include loan_management *.txt
+recursive-exclude loan_management *.pyc
