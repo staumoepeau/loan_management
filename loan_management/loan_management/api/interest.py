@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2018, Libermatic and contributors
+# Copyright (c) 2018, Sione Taumoepeau and contributors
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
@@ -7,9 +7,9 @@ import frappe
 from frappe.utils \
     import flt, add_days, add_months, get_last_day, getdate, formatdate
 from functools import partial, reduce
-from gwi_customization.microfinance.api.loan import get_outstanding_principal
-from gwi_customization.microfinance.utils import calc_interest
-from gwi_customization.microfinance.utils.fp import update, join, compose, pick
+from loan_management.loan_management.api.loan import get_outstanding_principal
+from loan_management.loan_management.utils import calc_interest
+from loan_management.loan_management.utils.fp import update, join, compose, pick
 
 
 def _interest_to_period(interest):
