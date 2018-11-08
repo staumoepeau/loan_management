@@ -10,8 +10,9 @@ from frappe.utils import flt, rounded, add_months, nowdate
 from erpnext.controllers.accounts_controller import AccountsController
 
 class CustomerLoan(AccountsController):
+	
 	def validate(self):
-		check_repayment_method(self.repayment_method, self.loan_amount, self.monthly_repayment_amount, self.repayment_periods)
+		check_repayment_method(self.repayment_method, self.total_loan_amount, self.monthly_repayment_amount, self.repayment_periods)
 		if not self.company:
 			self.company = erpnext.get_default_company()
 		if not self.posting_date:
@@ -19,7 +20,7 @@ class CustomerLoan(AccountsController):
 		if self.loan_product and not self.rate_of_interest:
 			self.rate_of_interest = frappe.db.get_value("Loan Product", self.loan_product, "rate_of_interest")
 		if self.repayment_method == "Repay Over Number of Periods":
-			self.monthly_repayment_amount = get_monthly_repayment_amount(self.repayment_method, self.loan_amount, self.rate_of_interest, self.repayment_periods)
+			self.monthly_repayment_amount = get_monthly_repayment_amount(self.repayment_method, self.total_loan_amount, self.rate_of_interest, self.repayment_periods)
 
 		self.make_repayment_schedule()
 		self.set_repayment_period()
@@ -58,8 +59,8 @@ class CustomerLoan(AccountsController):
 
 	def make_repayment_schedule(self):
 		self.repayment_schedule = []
-		payment_date = self.disbursement_date
-		balance_amount = self.loan_amount
+		payment_date = self.repayment_start_date
+		balance_amount = self.total_loan_amount
 
 		while(balance_amount > 0):
 			interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (12*100))

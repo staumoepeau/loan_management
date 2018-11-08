@@ -42,6 +42,11 @@ frappe.ui.form.on('Customer Loan', {
 				frm.trigger("make_jv");
 			})
 		}
+		if (frm.doc.docstatus == 1 && frm.doc.repayment_start_date) {
+			frm.add_custom_button(__('Make Repayment Entry'), function() {
+				frm.trigger("make_repayment_entry");
+			})
+		}
 		frm.trigger("toggle_fields");
 //		if (frm.doc.docstatus == 1){
 //			frm.add_custom_button(__('Update Status'), function() {
@@ -60,25 +65,26 @@ frappe.ui.form.on('Customer Loan', {
 	},
 	
 	
-	make_jv: function(frm) {
-		frappe.call({
-			args: {
-				"customer_loan": frm.doc.name,
-				"company": frm.doc.company,
-				"customer_loan_account": frm.doc.customer_loan_account,
-				"customer": frm.doc.customer,
-				"loan_amount": frm.doc.loan_amount,
-				"payment_account": frm.doc.payment_account
-			},
-			method: "loan_management.loan_management.doctype.customer_loan.customer_loan.make_jv_entry",
-			callback: function(r) {
-				if (r.message)
-					var doc = frappe.model.sync(r.message)[0];
-					frappe.set_route("Form", doc.doctype, doc.name);
-			}
-		})
-	},
-	mode_of_payment: function(frm) {
+//	make_jv: function(frm) {
+//		frappe.call({
+//			args: {
+//				"customer_loan": frm.doc.name,
+//				"company": frm.doc.company,
+//				"customer_loan_account": frm.doc.customer_loan_account,
+//				"customer": frm.doc.customer,
+//				"loan_amount": frm.doc.loan_amount,
+//				"payment_account": frm.doc.payment_account
+//			},
+//			method: "loan_management.loan_management.loan_management.doctype.customer_loan.make_jv_entry",
+//			callback: function(r) {
+//				if (r.message)
+//					var doc = frappe.model.sync(r.message)[0];
+//					frappe.set_route("Form", doc.doctype, doc.name);
+//			}
+//		})
+//	},
+
+ mode_of_payment: function(frm) {
 		frappe.call({
 			method: "erpnext.accounts.doctype.sales_invoice.sales_invoice.get_bank_cash_account",
 			args: {
@@ -94,22 +100,111 @@ frappe.ui.form.on('Customer Loan', {
 	},
 
 	customer_loan_application: function(frm) {
-		return frappe.call({
-			method: "erpnext.hr.doctype.customer_loan.customer_loan.get_customer_loan_application",
-			args: {
-				"customer_loan_application": frm.doc.customer_loan_application
-			},
-			callback: function(r){
-				if(!r.exc && r.message) {
-					frm.set_value("loan_product", r.message.loan_product);
-					frm.set_value("loan_amount", r.message.loan_amount);
-					frm.set_value("repayment_method", r.message.repayment_method);
-					frm.set_value("monthly_repayment_amount", r.message.repayment_amount);
-					frm.set_value("repayment_periods", r.message.repayment_periods);
-					frm.set_value("rate_of_interest", r.message.rate_of_interest);
+		if(frm.doc.customer_loan_application){
+			return frappe.call({
+				method: "loan_management.loan_management.doctype.customer_loan.customer_loan.get_customer_loan_application",
+				args: {
+					"customer_loan_application": frm.doc.customer_loan_application
+				},
+				callback: function(r){
+					if(!r.exc && r.message) {
+						frm.set_value("loan_product", r.message.loan_product);
+						frm.set_value("loan_amount", r.message.loan_amount);
+						frm.set_value("repayment_method", r.message.repayment_method);
+						frm.set_value("monthly_repayment_amount", r.message.repayment_amount);
+						frm.set_value("repayment_periods", r.message.repayment_periods);
+						frm.set_value("rate_of_interest", r.message.rate_of_interest);
+					}
+				}
+			})
+		}
+	},
+
+	make_repayment_entry: function(frm) {
+		var repayment_schedule = $.map(frm.doc.repayment_schedule, function(d) { return d.paid ? d.payment_date : false; });
+		if(repayment_schedule.length >= 1){
+			frm.repayment_data = [];
+			frm.show_dialog = 1;
+			let title = "";
+			let fields = [
+			{fieldtype:'Section Break', label: __('Repayment Schedule')},
+			{fieldname: 'payments', fieldtype: 'Table',
+				fields: [
+					{
+						fieldtype:'Data',
+						fieldname:'payment_date',
+						label: __('Date'),
+						read_only:1,
+						in_list_view: 1,
+						columns: 2
+					},
+					{
+						fieldtype:'Currency',
+						fieldname:'principal_amount',
+						label: __('Principal Amount'),
+						read_only:1,
+						in_list_view: 1,
+						columns: 3
+					},
+					{
+						fieldtype:'Currency',
+						fieldname:'interest_amount',
+						label: __('Interest'),
+						read_only:1,
+						in_list_view: 1,
+						columns: 2
+					},
+					{
+						fieldtype:'Currency',
+						read_only:1,
+						fieldname:'total_payment',
+						label: __('Total Payment'),
+						in_list_view: 1,
+						columns: 3
+					},
+				],
+				data: frm.repayment_data,
+				get_data: function() {
+					return frm.repayment_data;
 				}
 			}
-		})
+		]
+
+		var dialog = new frappe.ui.Dialog({
+			title: title, fields: fields,
+		});
+		if (frm.doc['repayment_schedule']) {
+			frm.doc['repayment_schedule'].forEach((payment, index) => {
+			if (payment.paid == 0 && payment.payment_date <= frappe.datetime.now_date()) {
+					frm.repayment_data.push ({
+						'id': index,
+						'name': payment.name,
+						'payment_date': payment.payment_date,
+						'principal_amount': payment.principal_amount,
+						'interest_amount': payment.interest_amount,
+						'total_payment': payment.total_payment 
+					});
+					dialog.fields_dict.payments.grid.refresh();
+					$(dialog.wrapper.find(".grid-buttons")).hide();
+					$(`.octicon.octicon-triangle-down`).hide();
+				}
+
+			})
+		}
+
+		dialog.show()
+		dialog.set_primary_action(__('Make Repayment Entry'), function() {
+			frm.values = dialog.get_values();
+			if(frm.values) {
+				_make_repayment_entry(frm, dialog.fields_dict.payments.grid.get_selected_children());
+				dialog.hide()
+				}
+			});
+		}
+
+		dialog.get_close_btn().on('click', () => {
+			dialog.hide();
+		});
 	},
 
 	repayment_method: function(frm) {
@@ -120,4 +215,42 @@ frappe.ui.form.on('Customer Loan', {
 		frm.toggle_enable("monthly_repayment_amount", frm.doc.repayment_method=="Repay Fixed Amount per Period")
 		frm.toggle_enable("repayment_periods", frm.doc.repayment_method=="Repay Over Number of Periods")
 	}
+});
+
+frappe.ui.form.on("Loan Fees Table", "loan_fees", function(frm, cdt, cdn){
+		var d = locals[cdt][cdn];
+
+		frappe.call({
+			"method": "frappe.client.get",
+			args: {
+				doctype: "Loan Fees",
+				filters: {
+					'name': d.loan_fees
+				},
+			},
+			callback: function(data) {
+				frappe.model.set_value(d.doctype, d.name, "description", data.message["fee_name"]);
+				frappe.model.set_value(d.doctype, d.name, "fee_amount", data.message["fee_amount"]);
+			}
+		})
+  });
+
+  frappe.ui.form.on("Loan Fees Table", "fee_amount", function(frm, cdt, cdn){
+	var d = locals[cdt][cdn];
+	var total_fees_amount = 0;
+
+	frm.doc.loan_fees_table.forEach(function(d) { 
+	
+		total_fees_amount += d.fee_amount;
+	
+		});
+
+	frm.set_value("total_fees", total_fees_amount);
+	frm.set_value("total_loan_amount", frm.doc.total_fees + frm.doc.loan_amount );
+
+	refresh_field("total_fees");
+	refresh_field("total_loan_amount");
+
+
+
 });

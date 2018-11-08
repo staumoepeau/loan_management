@@ -6,8 +6,8 @@ def get_data():
 	return [
 		{
 			"module_name": "Loan Management",
-			"color": "red",
-			"icon": "octicon octicon-file-directory",
+			"color": "green",
+			"icon": "fa fa-university",
 			"type": "module",
 			"label": _("Loan Management")
 		}

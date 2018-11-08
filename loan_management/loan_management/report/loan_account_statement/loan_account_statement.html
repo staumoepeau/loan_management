@@ -1,0 +1,95 @@
+<style>
+  .print-format table > thead > tr > td,
+  .print-format table > tfoot > tr > td {
+    font-weight: bold;
+  }
+  .print-format dl {
+    display: flex;
+    flex-flow: row wrap;
+  }
+  .print-format dl > div {
+    width: 33%;
+    margin-bottom: 1em;
+  }
+</style>
+
+<h2>Loan Account Statement</h2>
+<div class="container">
+    <div class="row">
+        <div class="col-sm-4">
+          <p><b>Customer Name</b></p>
+          <p>{{ filters.customer_name }}</p>
+        </div>
+        <div class="col-sm-4">
+        </div>
+      </div>
+  <div class="row">
+    <div class="col-sm-4">
+      <p><b>Statement Generated On</b></p>
+      <p>{{ dateutil.str_to_user(dateutil.get_datetime_as_string()) }}</p>
+    </div>
+    <div class="col-sm-4">
+      <p><b>Statement Period</b></p>
+      <p>{{ dateutil.str_to_user(filters.from_date) }} &mdash; {{ dateutil.str_to_user(filters.to_date) }}</p>
+    </div>
+  </div>
+  <div class="row">
+      <div class="col-sm-4">
+        <p><b>Loan Account No</b></p>
+        <p>{{ filters.loan }}</p>
+      </div>
+      <div class="col-sm-4">
+        <p><b>Loan Start Date</b></p>
+        <p>{{ dateutil.str_to_user(filters.loan_start_date) }}</p>
+      </div>
+    </div>
+</div>
+
+<table class="table table-bordered">
+  <thead>
+    <tr>
+      <th style="width: 15%;">{{ __("Posting Date") }}</th>
+      <th style="width: 40%;">{{ __("Description") }}</th>
+      <th style="width: 15%;" class="text-right">{{ __("Credit") }}</th>
+      <th style="width: 15%;" class="text-right">{{ __("Debit") }}</th>
+      <th style="width: 15%;" class="text-right">{{ __("Total") }}</th>
+    </tr>
+    <tr>
+      <td />
+      <td>{{ __("Opening Balance") }}</td>
+      <td />
+      <td />
+      {% var opening = data[0][__("Credit")] - data[0][__("Debit")] %}
+      <td class="text-right">{{ format_currency(opening) }}</td>
+    </tr>
+  </thead>
+  <tbody>
+    {% for (var i = 1; i < data.length - 2; i++ ) { %}
+    <tr>
+      <td>{{ dateutil.str_to_user(data[i][__("Posting Date")]) }}</td>
+      <td>{{ data[i][__("Remarks")] }}</td>
+      <td class="text-right">{{ format_currency(data[i][__("Credit")]) }}</td>
+      <td class="text-right">{{ format_currency(data[i][__("Debit")]) }}</td>
+      <td class="text-right">{{ format_currency(data[i][__("Amount")])  }}</td>
+    </tr>
+    {% } %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td />
+      <td>{{ __("Total") }}</td>
+      {% var total = data[data.length - 2][__("Credit")] - data[data.length - 2][__("Debit")] %}
+      <td />
+      <td />
+      <td class="text-right">{{ format_currency(total) }}</td>
+    </tr>
+    <tr>
+      <td />
+      <td>{{ __("Closing balance") }}</td>
+      {% var closing = data[data.length - 1][__("Credit")] - data[data.length - 1][__("Debit")] %}
+      <td />
+      <td />
+      <td class="text-right">{{ format_currency(closing) }}</td>
+    </tr>
+  </tfoot>
+</table>
