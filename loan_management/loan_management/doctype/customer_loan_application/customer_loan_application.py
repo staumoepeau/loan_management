@@ -8,21 +8,17 @@ from frappe import _
 from frappe.model.mapper import get_mapped_doc
 from frappe.utils import flt, rounded, add_months, nowdate
 from frappe.model.document import Document
-from frappe.utils import getdate, get_last_day, add_months, flt, rounded, cint
+from frappe.utils import getdate, get_last_day, cint
 from functools import partial
 from erpnext.accounts.general_ledger import make_gl_entries
-from erpnext.controllers.accounts_controller import AccountsController
 from loan_management.loan_management.api.loan import (
     get_chart_data,
-    calculate_principal,
 	get_schedule_info,
     get_outstanding_principal,
 	get_undisbursed_principal,
 )
 
-#from loan_management.loan_management.doctype.customer_loan.customer_loan import get_monthly_repayment_amount, check_repayment_method
-
-class CustomerLoanApplication(AccountsController):
+class CustomerLoanApplication(Document):
 
 	def on_submit(self):
 		if self.workflow_state == "Approved":
@@ -33,14 +29,13 @@ class CustomerLoanApplication(AccountsController):
 			self.status = "Pending"
 		self.create_customer_account()
 		self.get_loan_accounts()
-#		self.update_fees()
 		self.update_disbursement_status()
 		self.update_repayment_status()
 
 	def validate(self):
 		self.check_repayment_method()
 		self.validate_loan_amount()
-		self.get_repayment_details()
+		
 		if not self.company:
 			self.company = erpnext.get_default_company()
 		if not self.posting_date:
@@ -48,8 +43,9 @@ class CustomerLoanApplication(AccountsController):
 		if self.loan_product and not self.rate_of_interest:
 			self.rate_of_interest = frappe.db.get_value("Loan Product", self.loan_product, "rate_of_interest")
 			self.annual_or_monthly = frappe.db.get_value("Loan Product", self.loan_product, "annual_or_monthly")
-		if self.repayment_method == "Repay Over Number of Periods":
-			self.monthly_repayment_amount = self.get_monthly_repayment_amount()
+#		if self.repayment_method == "Repay Over Number of Periods":
+#			self.monthly_repayment_amount = self.get_monthly_repayment_amount()
+		self.get_repayment_details()
 		self.make_repayment_schedule()
 		self.set_repayment_period()
 		self.calculate_totals()
@@ -63,17 +59,14 @@ class CustomerLoanApplication(AccountsController):
 		if self.repayment_method == "Repay Over Number of Periods":
 			self.monthly_repayment_amount = self.get_monthly_repayment_amount()
 
-		if self.repayment_method == "Repay Fixed Amount per Period":
-			if self.annual_or_monthly == "Yearly":
-				monthly_interest_rate = flt(self.rate_of_interest) / (12 *100)
-			if self.annual_or_monthly == "Monthly":
-				monthly_interest_rate = flt(self.rate_of_interest) / (100)
-			if monthly_interest_rate:
-				self.repayment_periods = math.ceil((math.log(self.monthly_repayment_amount) - 
-					math.log(self.monthly_repayment_amount - (self.loan_amount*monthly_interest_rate))) /
-					(math.log(1 + monthly_interest_rate)))
-			else:
-				self.repayment_periods = self.loan_amount / self.monthly_repayment_amount
+	#	if self.repayment_method == "Repay Fixed Amount per Period":
+	#		monthly_interest_rate = flt(self.rate_of_interest) / (12 *100)
+	#		if monthly_interest_rate:
+	#			self.repayment_periods = math.ceil((math.log(self.monthly_repayment_amount) - 
+	#				math.log(self.monthly_repayment_amount - (self.loan_amount*monthly_interest_rate))) /
+	#				(math.log(1 + monthly_interest_rate)))
+	#	else:
+	#		self.repayment_periods = self.loan_amount / self.monthly_repayment_amount
 
 		self.calculate_payable_amount()
 		
@@ -81,27 +74,26 @@ class CustomerLoanApplication(AccountsController):
 		balance_amount = self.loan_amount
 		self.total_payable_amount = 0
 		self.total_payable_interest = 0
-
-		while(balance_amount > 0):
-			if self.annual_or_monthly == "Yearly":
-				interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (12*100))
-			if self.annual_or_monthly == "Monthly":
-				interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (100))
-			balance_amount = rounded(balance_amount + interest_amount - self.monthly_repayment_amount)
-
-			self.total_payable_interest += interest_amount
+#		interest_amount = 0
+		if self.annual_or_monthly == "Monthly":
+			interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (12*100))			
+		if self.annual_or_monthly == "Yearly":
+			interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (100))
+			
+		balance_amount = rounded(balance_amount + interest_amount - self.monthly_repayment_amount)
+		self.total_payable_interest += interest_amount
 			
 		self.total_payable_amount = self.loan_amount + self.total_payable_interest
-	
+
 	def make_repayment_schedule(self):
 		self.repayment_schedule = []
 		payment_date = self.repayment_start_date
 		balance_amount = self.loan_amount
 
 		while(balance_amount > 0):
-			if self.annual_or_monthly == "Yearly":
-				interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (12*100))
 			if self.annual_or_monthly == "Monthly":
+				interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (12*100))			
+			if self.annual_or_monthly == "Yearly":
 				interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (100))
 			principal_amount = self.monthly_repayment_amount - interest_amount
 			balance_amount = rounded(balance_amount + interest_amount - self.monthly_repayment_amount)
@@ -131,6 +123,8 @@ class CustomerLoanApplication(AccountsController):
 			self.repayment_periods = repayment_periods
 
 	def calculate_totals(self):
+		if not self.total_loan:
+			self.total_loan = self.total_fees + self.total_payable_amount
 		self.total_payment = 0
 		self.total_interest_payable = 0
 		for data in self.repayment_schedule:
@@ -177,11 +171,13 @@ class CustomerLoanApplication(AccountsController):
 
 	def get_monthly_repayment_amount(self):
 		if self.rate_of_interest:
-			if self.annual_or_monthly == "Yearly":
-				monthly_interest_rate = flt(self.rate_of_interest) / (12 *100)
 			if self.annual_or_monthly == "Monthly":
+				monthly_interest_rate = flt(self.rate_of_interest) / (12 *100)			
+			if self.annual_or_monthly == "Yearly":
 				monthly_interest_rate = flt(self.rate_of_interest) / (100)
-			monthly_repayment_amount = math.ceil((self.loan_amount * monthly_interest_rate *
+			
+			monthly_interest_rate = flt(self.rate_of_interest) / (12 *100)			
+			monthly_repayment_amount = math.ceil((self.loan_amount * monthly_interest_rate * 
 				(1 + monthly_interest_rate)**self.repayment_periods) \
 				/ ((1 + monthly_interest_rate)**self.repayment_periods - 1))
 		else:
@@ -214,9 +210,9 @@ class CustomerLoanApplication(AccountsController):
 	def get_interest_amount(self):
 		balance_amount = self.loan_amount
 		if self.annual_or_monthly == "Yearly":
-				interest_amount = flt(self.rate_of_interest) / (12 *100)
+			interest_amount = flt(self.rate_of_interest) / (100)
 		if self.annual_or_monthly == "Monthly":
-				interest_amount = flt(self.rate_of_interest) / (100)
+			interest_amount = flt(self.rate_of_interest) / (12 * 100)
 
 		return interest_amount
 
@@ -257,71 +253,9 @@ def create_repayment(customer_loan, company, loan_account, customer, loan_amount
 	repayment.principal_amount = loan.principal_amount
 	repayment.interest_amount = loan.interest_amount
 	repayment.repayment_schedule_id = loan.name
-#	repayment.total_charges = total_fees
 
 	return repayment
 
-
-#@frappe.whitelist()
-#def make_jv_entry(customer_loan_application, company, customer_loan_account, customer, loan_amount, payment_account):
-#	journal_entry = frappe.new_doc('Journal Entry')
-#	journal_entry.voucher_type = 'Bank Entry'
-#	journal_entry.user_remark = _('Against Customer Loan: {0}').format(customer_loan_application)
-#	journal_entry.company = company
-#	journal_entry.posting_date = nowdate()
-
-#	account_amt_list = []
-
-#	account_amt_list.append({
-#		"account": customer_loan_account,
-#		"party_type": "Customer",
-#		"party": customer,
-#		"debit_in_account_currency": loan_amount,
-#		"reference_type": "Customer Loan Application",
-#		"reference_name": customer_loan_application,
-#		})
-#	account_amt_list.append({
-#		"account": payment_account,
-#		"credit_in_account_currency": loan_amount,
-#		"reference_type": "Customer Loan Application",
-#		"reference_name": customer_loan_application,
-#		})
-#	journal_entry.set("accounts", account_amt_list)
-#	return journal_entry.as_dict()
-
-
-
-#@frappe.whitelist()
-#def make_repayment_entry(customer_loan_application, company, customer_loan_account, customer, interest_rate, interest_account, loan_amount, payment_account):
-#	journal_entry = frappe.new_doc('Journal Entry')
-#	journal_entry.voucher_type = 'Bank Entry'
-#	journal_entry.user_remark = _('Payment Against Customer Loan: {0}').format(customer_loan_application)
-#	journal_entry.company = company
-#	journal_entry.posting_date = nowdate()
-	
-#	account_amt_list = []
-#	account_amt_list.append({
-#		"account": customer_loan_account,
-#		"party_type": "Customer",
-#		"party": customer,
-#		"credit_in_account_currency": loan_amount,
-#		"reference_type": "Customer Loan Application",
-#		"reference_name": customer_loan_application,
-#		})
-#	account_amt_list.append({
-#		"account": interest_account,
-#		"debit_in_account_currency": interest_amount,
-#		"reference_type": "Customer Loan Application",
-#		"reference_name": customer_loan_application,loan_amount
-#		})
-#	account_amt_list.append({
-#		"account": payment_account,
-#		"credit_in_account_currency": loan_amount,
-#		"reference_type": "Customer Loan Application",
-#		"reference_name": customer_loan_application,
-#		})
-#	journal_entry.set("accounts", account_amt_list)
-#	return journal_entry.as_dict()
 
 @frappe.whitelist()
 def update_amounts(name, loan_amount=None):

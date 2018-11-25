@@ -69,7 +69,6 @@ frappe.ui.form.on('Customer Loan Application', {
 				"loan_account": frm.doc.customer_loan_account,
 				"customer": frm.doc.customer,
 				"loan_amount": frm.doc.loan_amount
-//				"total_fees" : frm.doc.total_fees
 			},
 			method: "loan_management.loan_management.doctype.customer_loan_application.customer_loan_application.create_repayment",
 			callback: function(r) {
@@ -79,24 +78,7 @@ frappe.ui.form.on('Customer Loan Application', {
 			}
 		})
 	},
-	make_jv: function(frm) {
-		frappe.call({
-			args: {
-				"customer_loan_application": frm.doc.name,
-				"company": frm.doc.company,
-				"customer_loan_account": frm.doc.customer_loan_account,
-				"customer": frm.doc.customer,
-				"loan_amount": frm.doc.loan_amount,
-				"payment_account": frm.doc.payment_account
-			},
-			method: "loan_management.loan_management.doctype.customer_loan_application.customer_loan_application.make_jv_entry",
-			callback: function(r) {
-				if (r.message)
-					var doc = frappe.model.sync(r.message)[0];
-					frappe.set_route("Form", doc.doctype, doc.name);
-			}
-		})
-	},
+
 	repayment_method: function(frm) {
 		frm.doc.repayment_amount = frm.doc.repayment_periods = ""
 		frm.trigger("toggle_fields")
@@ -105,7 +87,12 @@ frappe.ui.form.on('Customer Loan Application', {
 		frm.toggle_enable("repayment_amount", frm.doc.repayment_method=="Repay Fixed Amount per Period")
 		frm.toggle_enable("repayment_periods", frm.doc.repayment_method=="Repay Over Number of Periods")
 	},
+	disbursement_date: function(frm) {
+		frm.trigger('set_disbursement_date');
+		
+		
 
+	},
 	render_chart: function(frm) {
 		const chart_area = frm.$wrapper.find('.form-graph').removeClass('hidden');
 		const chart = new frappeChart.Chart(chart_area[0], {
@@ -120,6 +107,12 @@ frappe.ui.form.on('Customer Loan Application', {
 				.empty()
 				.addClass('hidden');
 		},
+	
+	set_disbursement_date: function(frm){	
+		frm.set_value("repayment_start_date", frappe.datetime.add_days(frm.doc.disbursement_date, frm.doc.loan_period));
+		refresh_field("repayment_start_date");
+	//	frappe.msgprint(__("Test."));
+	},
 });
 
 frappe.ui.form.on("Loan Fees Table", "loan_fees", function(frm, cdt, cdn){
@@ -152,8 +145,35 @@ frappe.ui.form.on("Loan Fees Table", "fee_amount", function(frm, cdt, cdn){
 		});
 
 	frm.set_value("total_fees", total_fees_amount);
-//	frm.set_value("loan_amount", frm.doc.total_fees + frm.doc.loan_amount );
 
 	refresh_field("total_fees");
 	refresh_field("loan_amount");
+});
+
+frappe.ui.form.on("Customer Income", "income_amount", function(frm, cdt, cdn){
+	var t = locals[cdt][cdn];
+	var total_income_amount = 0;
+
+	frm.doc.customer_income.forEach(function(t) { 
+
+		total_income_amount += t.income_amount;
+
+		});
+	frm.set_value("total_income", total_income_amount);
+	refresh_field("total_income");
+
+});
+
+frappe.ui.form.on("Customer Expenses", "income_amount", function(frm, cdt, cdn){
+	var e = locals[cdt][cdn];
+	var total_expenses_amount = 0;
+
+	frm.doc.customer_expenses.forEach(function(e) { 
+
+		total_expenses_amount += t.expenses_amount;
+
+		});
+	frm.set_value("total_expenses", total_expenses_amount);
+	refresh_field("total_expenses");
+
 });

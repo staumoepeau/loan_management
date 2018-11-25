@@ -56,11 +56,36 @@ def get_data():
 					"name": "Loan Fees",
 					"label": _("Loan Fees")
 				},
+			]
+
+		},
+		{
+			"label": _("Loan Assets"),
+			"icon": "fa fa-table",
+			"items": [
 				{
 					"type": "doctype",
-					"name": "Loan Interest",
-					"label": _("Loan Interest")
+					"name": "Loan Assets",
+					"label": _("Loan Assets")
 				},
+			]
+
+		},
+		{
+			"label": _("Reports"),
+			"items": [
+				{
+                    "type": "report",
+                    "is_query_report": True,
+                    "name": "Loan Account Statement",
+                    "label": "Loan Statement",
+                },
+				                {
+                    "type": "report",
+                    "is_query_report": True,
+                    "name": "Loan Summary",
+                    "label": "Loan Summary",
+                },
 			]
 
 		}

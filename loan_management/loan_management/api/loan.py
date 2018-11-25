@@ -7,8 +7,6 @@ import frappe
 from frappe.utils import getdate, get_last_day, add_months, flt, rounded, cint
 from functools import partial
 from loan_management.loan_management.utils.fp import join, compose, pick
-from loan_management.loan_management.utils import month_diff, calc_interest
-
 
 def get_disbursed(loan):
     """Gets disbursed principal"""
@@ -44,7 +42,25 @@ def get_loan_schedule_status(loan, principal_amount, interest_amount, repayment_
         raise frappe.DoesNotExistError("Loan: {} not found".format(loan))
     return principal_amount - get_disbursed(loan)
 
+@frappe.whitelist()
+def get_payable_interest(loan):
+    """Gets Loan Interest Amount"""
+    interest_amount = frappe.get_value(
+        'Customer Loan Application', loan, 'total_payable_interest'
+    )
+    if not interest_amount:
+        raise frappe.DoesNotExistError("Loan: {} not found".format(loan))
+    return interest_amount
 
+@frappe.whitelist()
+def get_fees(loan):
+    """Gets Loan Fees"""
+    fees = frappe.get_value(
+        'Customer Loan Application', loan, 'total_fees'
+    )
+    if not fees:
+        raise frappe.DoesNotExistError("Loan: {} not found".format(loan))
+    return fees
 
 @frappe.whitelist()
 def get_undisbursed_principal(loan):
@@ -164,49 +180,6 @@ def get_schedule_info(loan):
         as_dict=True,
     )
     return schedule[0] if schedule else None
-
-
-@frappe.whitelist()
-def calculate_principal(income, loan_plan, end_date, execution_date):
-    """
-        Return a dict containing the maximum allowed principal along with the
-        duration and monthly installment.
-
-        :param income: Renumeration received by the Customer
-        :param loan_plan: Name of a Loan Plan
-        :param end_date: Maximum date on which the loan could end
-        :param execution_date: Date on which the loan would start
-    """
-    plan = frappe.get_doc('Loan Product', loan_plan)
-    if not plan.income_multiple or not plan.max_duration:
-        frappe.throw('Missing values in Loan Product', ValueError)
-
-    recovery_amount = flt(income) * plan.income_multiple / plan.max_duration
-
-    duration = plan.max_duration if plan.force_max_duration else min(
-        plan.max_duration,
-        compose(
-            partial(month_diff, end_date), get_last_day
-        )(execution_date),
-    )
-
-    expected_eta = compose(
-        partial(add_months, months=duration), get_last_day
-    )(execution_date)
-
-    principal = recovery_amount * duration
-    initial_interest = calc_interest(
-        principal, plan.rate_of_interest, plan.calculation_slab
-    )
-
-    return {
-        'principal': rounded(principal, 2),
-        'expected_eta': expected_eta,
-        'duration': duration,
-        'recovery_amount': rounded(recovery_amount, 2),
-        'initial_interest': rounded(initial_interest, 2),
-    }
-
 
 @frappe.whitelist()
 def update_amounts(name, principal_amount=None, recovery_amount=None):

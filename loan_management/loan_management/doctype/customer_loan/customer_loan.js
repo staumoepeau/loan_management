@@ -2,6 +2,7 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('Customer Loan', {
+	
 	onload: function(frm) {
 		frm.set_query("customer_loan_application", function() {
 			return {

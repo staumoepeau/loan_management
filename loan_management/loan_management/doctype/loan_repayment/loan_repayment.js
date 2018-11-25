@@ -3,18 +3,10 @@
 
 frappe.ui.form.on('Loan Repayment', {
 	refresh: function(frm) {
-		frm.fields_dict['loan'].get_query = doc => ({
-		  filters: { docstatus: 1 },
-		});
-	//	frappe.ui.form.on('Microfinance Other Charge', {
-	//	  charge_amount: function(frm) {
-	//		frm.trigger('calculate_totals');
-	//	  },
-	//	  charges_remove: function(frm) {
-	//		frm.trigger('calculate_totals');
-	//	  },
-	//	});
-	  },
+			frm.fields_dict['loan'].get_query = doc => ({
+				filters: { docstatus: 1 },
+			});
+		},
 	  loan: function(frm) {
 		frm.trigger('set_init_amounts');
 	  },
@@ -39,25 +31,25 @@ frappe.ui.form.on('Loan Repayment', {
 		  frm.set_value('payment_account', message.account);
 		}
 	  },
-	  set_init_amounts: async function(frm) {
-		const { loan, posting_date } = frm.doc;
-		if (loan && posting_date) {
-		  const [
-			{ message: interest_amount = 0 },
-			{ message: { monthly_repayment_amount = 0 } = {} },
-		  ] = await Promise.all([
-			frappe.call({
-			  method:
-				'loan_management.loan_management.api.interest.get_current_interest',
-			  args: { loan, posting_date },
-			}),
-			frappe.db.get_value('Customer Loan Application', loan, ['monthly_repayment_amount'],['total_fees']),
-		  ]);
-		  frm.set_value('total_interests', interest_amount);
-			frm.set_value('principal_amount', monthly_repayment_amount);
-			frm.set_value('total_fees', total_fees);
-		}
-	  },
+//	  set_init_amounts: async function(frm) {
+//		const { loan, posting_date } = frm.doc;
+//		if (loan && posting_date) {
+//		  const [
+//			{ message: interest_amount = 0 },
+//			{ message: { monthly_repayment_amount = 0 } = {} },
+//		  ] = await Promise.all([
+//			frappe.call({
+//			  method:
+//				'loan_management.loan_management.api.interest.get_current_interest',
+//			  args: { loan, posting_date },
+//			}),
+//			frappe.db.get_value('Customer Loan Application', loan, ['monthly_repayment_amount'],['total_fees']),
+//		  ]);
+//		  frm.set_value('total_interests', interest_amount);
+//			frm.set_value('principal_amount', monthly_repayment_amount);
+//			frm.set_value('total_fees', total_fees);
+//		}
+//	  },
 		
 		calculate_totals: function(frm) {
 		if (

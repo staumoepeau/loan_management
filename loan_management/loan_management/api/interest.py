@@ -8,7 +8,7 @@ from frappe.utils \
     import flt, add_days, add_months, get_last_day, getdate, formatdate
 from functools import partial, reduce
 from loan_management.loan_management.api.loan import get_outstanding_principal
-from loan_management.loan_management.utils import calc_interest
+#from loan_management.loan_management.utils import calc_interest
 from loan_management.loan_management.utils.fp import update, join, compose, pick
 
 

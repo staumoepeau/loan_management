@@ -37,8 +37,8 @@ def execute(filters={}):
         _("Remarks") + "::240",
     ]
 
-    company, loan_account = frappe.get_value(
-        'Customer Loan Application', filters.get('loan'), ['company', 'customer_loan_account']
+    loan_account = frappe.get_value(
+        'Customer Loan Application', filters.get('loan'), ['customer_loan_account']
     )
 #    accounts_to_exclude = [
 #        'Personal Loan Interest - {}'.format(

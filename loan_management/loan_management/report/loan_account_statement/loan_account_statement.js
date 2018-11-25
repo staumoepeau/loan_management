@@ -1,6 +1,5 @@
 // Copyright (c) 2018, Sione Taumoepeau and contributors
 // For license information, please see license.txt
-/* eslint-disable */
 
 
 frappe.query_reports['Loan Account Statement'] = {
