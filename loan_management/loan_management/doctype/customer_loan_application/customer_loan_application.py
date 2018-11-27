@@ -57,7 +57,7 @@ class CustomerLoanApplication(Document):
 
 	def get_repayment_details(self):
 		if self.repayment_method == "Repay Over Number of Periods":
-			self.monthly_repayment_amount = self.get_monthly_repayment_amount()
+			self.monthly_repayment_amount = self.calculate_payable_amount()
 
 	#	if self.repayment_method == "Repay Fixed Amount per Period":
 	#		monthly_interest_rate = flt(self.rate_of_interest) / (12 *100)
@@ -68,7 +68,7 @@ class CustomerLoanApplication(Document):
 	#	else:
 	#		self.repayment_periods = self.loan_amount / self.monthly_repayment_amount
 
-		self.calculate_payable_amount()
+	#	self.calculate_payable_amount()
 		
 	def calculate_payable_amount(self):
 		balance_amount = self.loan_amount
@@ -80,9 +80,8 @@ class CustomerLoanApplication(Document):
 		if self.annual_or_monthly == "Yearly":
 			interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (100))
 			
-		balance_amount = rounded(balance_amount + interest_amount - self.monthly_repayment_amount)
-		self.total_payable_interest += interest_amount
-			
+	#	balance_amount = rounded(balance_amount + interest_amount - self.monthly_repayment_amount)
+		self.total_payable_interest += interest_amount	
 		self.total_payable_amount = self.loan_amount + self.total_payable_interest
 
 	def make_repayment_schedule(self):
@@ -95,8 +94,9 @@ class CustomerLoanApplication(Document):
 				interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (12*100))			
 			if self.annual_or_monthly == "Yearly":
 				interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (100))
-			principal_amount = self.monthly_repayment_amount - interest_amount
-			balance_amount = rounded(balance_amount + interest_amount - self.monthly_repayment_amount)
+
+			principal_amount = self.loan_amount
+#			balance_amount = rounded(balance_amount + interest_amount)
 
 			if balance_amount < 0:
 				principal_amount += balance_amount
@@ -113,8 +113,8 @@ class CustomerLoanApplication(Document):
 				"status" : "Unpaid"
 			})
 
-			next_payment_date = add_months(payment_date, 1)
-			payment_date = next_payment_date
+#			next_payment_date = add_months(payment_date, 1)
+#			payment_date = next_payment_date
 
 	def set_repayment_period(self):
 		if self.repayment_method == "Repay Fixed Amount per Period":
