@@ -13,7 +13,7 @@ frappe.ui.form.on('Customer Loan Application', {
 
 	},
 
-	refresh: async function(frm) {
+	refresh: function(frm) {
     frm.trigger('clear_chart');
 		if (frm.doc.docstatus === 1 && frm.doc.__onload['chart_data']) {
 			frm.trigger('render_chart');
@@ -39,8 +39,8 @@ frappe.ui.form.on('Customer Loan Application', {
 			});
 		}
 
-		frm.trigger("toggle_fields")
-		frm.trigger("add_toolbar_buttons")
+//		frm.trigger("toggle_fields")
+//		frm.trigger("add_toolbar_buttons")
 	},
 
 	make_disbursement: function(frm) {

@@ -27,25 +27,24 @@ class CustomerLoanApplication(Document):
 			self.status = "Rejected"
 		if self.workflow_state == "Pending":
 			self.status = "Pending"
+
 		self.create_customer_account()
 		self.get_loan_accounts()
-		self.update_disbursement_status()
+#		self.update_disbursement_status()
 		self.update_repayment_status()
 
-	def validate(self):
-		self.check_repayment_method()
-		self.validate_loan_amount()
-		
+	def validate(self):		
 		if not self.company:
 			self.company = erpnext.get_default_company()
 		if not self.posting_date:
 			self.posting_date = nowdate()
+		self.check_repayment_method()
+		self.validate_loan_amount()
 		if self.loan_product and not self.rate_of_interest:
 			self.rate_of_interest = frappe.db.get_value("Loan Product", self.loan_product, "rate_of_interest")
 			self.annual_or_monthly = frappe.db.get_value("Loan Product", self.loan_product, "annual_or_monthly")
-#		if self.repayment_method == "Repay Over Number of Periods":
-#			self.monthly_repayment_amount = self.get_monthly_repayment_amount()
 		self.get_repayment_details()
+		self.calculate_payable_amount()
 		self.make_repayment_schedule()
 		self.set_repayment_period()
 		self.calculate_totals()
@@ -57,30 +56,17 @@ class CustomerLoanApplication(Document):
 
 	def get_repayment_details(self):
 		if self.repayment_method == "Repay Over Number of Periods":
-			self.monthly_repayment_amount = self.calculate_payable_amount()
-
-	#	if self.repayment_method == "Repay Fixed Amount per Period":
-	#		monthly_interest_rate = flt(self.rate_of_interest) / (12 *100)
-	#		if monthly_interest_rate:
-	#			self.repayment_periods = math.ceil((math.log(self.monthly_repayment_amount) - 
-	#				math.log(self.monthly_repayment_amount - (self.loan_amount*monthly_interest_rate))) /
-	#				(math.log(1 + monthly_interest_rate)))
-	#	else:
-	#		self.repayment_periods = self.loan_amount / self.monthly_repayment_amount
-
-	#	self.calculate_payable_amount()
-		
+			self.monthly_repayment_amount = self.get_monthly_repayment_amount()
+	
 	def calculate_payable_amount(self):
 		balance_amount = self.loan_amount
 		self.total_payable_amount = 0
 		self.total_payable_interest = 0
-#		interest_amount = 0
 		if self.annual_or_monthly == "Monthly":
 			interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (12*100))			
 		if self.annual_or_monthly == "Yearly":
 			interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (100))
 			
-	#	balance_amount = rounded(balance_amount + interest_amount - self.monthly_repayment_amount)
 		self.total_payable_interest += interest_amount	
 		self.total_payable_amount = self.loan_amount + self.total_payable_interest
 
@@ -95,7 +81,11 @@ class CustomerLoanApplication(Document):
 			if self.annual_or_monthly == "Yearly":
 				interest_amount = rounded(balance_amount * flt(self.rate_of_interest) / (100))
 
-			principal_amount = self.loan_amount
+			principal_amount = self.total_payable_amount - interest_amount
+			balance_amount = rounded(balance_amount + interest_amount - self.total_payable_amount)
+			fee_amount = (self.total_fees / self.repayment_periods)
+
+#			principal_amount = self.loan_amount
 #			balance_amount = rounded(balance_amount + interest_amount)
 
 			if balance_amount < 0:
@@ -104,17 +94,19 @@ class CustomerLoanApplication(Document):
 
 			total_payment = principal_amount + interest_amount
 
+
 			self.append("repayment_schedule", {
 				"payment_date": payment_date,
 				"principal_amount": principal_amount,
 				"interest_amount": interest_amount,
 				"total_payment": total_payment,
+				"total_fee_amount" : fee_amount,
 				"balance_loan_amount": balance_amount,
 				"status" : "Unpaid"
 			})
 
-#			next_payment_date = add_months(payment_date, 1)
-#			payment_date = next_payment_date
+			next_payment_date = add_months(payment_date, 1)
+			payment_date = next_payment_date
 
 	def set_repayment_period(self):
 		if self.repayment_method == "Repay Fixed Amount per Period":
@@ -125,11 +117,11 @@ class CustomerLoanApplication(Document):
 	def calculate_totals(self):
 		if not self.total_loan:
 			self.total_loan = self.total_fees + self.total_payable_amount
-		self.total_payment = 0
-		self.total_interest_payable = 0
-		for data in self.repayment_schedule:
-			self.total_payment += data.total_payment
-			self.total_interest_payable +=data.interest_amount
+#		self.total_payment = 0
+#		self.total_interest_payable = 0
+#		for data in self.repayment_schedule:
+#			self.total_payment += data.total_payment
+#			self.total_interest_payable +=data.interest_amount
 	
 	def update_disbursement_status(self):
 		disbursement = frappe.db.sql("""select posting_date, ifnull(sum(debit_in_account_currency), 0) as disbursed_amount 
@@ -163,11 +155,11 @@ class CustomerLoanApplication(Document):
 		if self.repayment_method == "Repay Over Number of Periods" and not self.repayment_periods:
 			frappe.throw(_("Please enter Repayment Periods"))
 			
-		if self.repayment_method == "Repay Fixed Amount per Period":
-			if not self.monthly_repayment_amount:
-				frappe.throw(_("Please enter repayment Amount"))
-			if self.monthly_repayment_amount > self.loan_amount:
-				frappe.throw(_("Monthly Repayment Amount cannot be greater than Loan Amount"))
+#		if self.repayment_method == "Repay Fixed Amount per Period":
+#			if not self.monthly_repayment_amount:
+#				frappe.throw(_("Please enter repayment Amount"))
+#			if self.monthly_repayment_amount > self.loan_amount:
+#				frappe.throw(_("Monthly Repayment Amount cannot be greater than Loan Amount"))
 
 	def get_monthly_repayment_amount(self):
 		if self.rate_of_interest:
@@ -175,11 +167,12 @@ class CustomerLoanApplication(Document):
 				monthly_interest_rate = flt(self.rate_of_interest) / (12 *100)			
 			if self.annual_or_monthly == "Yearly":
 				monthly_interest_rate = flt(self.rate_of_interest) / (100)
-			
-			monthly_interest_rate = flt(self.rate_of_interest) / (12 *100)			
-			monthly_repayment_amount = math.ceil((self.loan_amount * monthly_interest_rate * 
-				(1 + monthly_interest_rate)**self.repayment_periods) \
-				/ ((1 + monthly_interest_rate)**self.repayment_periods - 1))
+
+			monthly_repayment_amount = math.ceil(flt(self.total_payable_amount) / self.repayment_periods)
+#			monthly_interest_rate = flt(self.rate_of_interest) / (12 *100)			
+#			monthly_repayment_amount = math.ceil((self.loan_amount * monthly_interest_rate * 
+#				(1 + monthly_interest_rate)**self.repayment_periods) \
+#				/ ((1 + monthly_interest_rate)**self.repayment_periods - 1))
 		else:
 			monthly_repayment_amount = math.ceil(flt(self.loan_amount) / self.repayment_periods)
 		return monthly_repayment_amount
