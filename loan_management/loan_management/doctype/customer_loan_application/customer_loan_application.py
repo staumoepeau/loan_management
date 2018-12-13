@@ -30,7 +30,7 @@ class CustomerLoanApplication(Document):
 
 		self.create_customer_account()
 		self.get_loan_accounts()
-#		self.update_disbursement_status()
+		self.update_disbursement_status()
 		self.update_repayment_status()
 
 	def validate(self):		
