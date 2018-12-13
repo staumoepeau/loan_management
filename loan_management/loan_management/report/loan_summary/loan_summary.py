@@ -32,7 +32,7 @@ def _make_row(row):
 def execute(filters={}):
     columns = [
             _("Posting Date") + ":Date:90",
-            _("Loan ID") + ":Link/Microfinance Loan:90",
+            _("Loan ID") + ":Link/Customer Loan Application:90",
             _("Customer") + ":Link/Customer:120",
             _("Loan Amount") + ":Currency/currency:90",
             _("Disbursed Amount") + ":Currency/currency:90",
